@@ -14,7 +14,7 @@ Returns a JavaScript object for an email message (subject, body, etc) that will 
 
 ### Steps to Run:
 
-1. Navigate to: `/ITSM-System-Developer-Test/javascript_email_metric_summary`
+1. Navigate to: `ITSM-System-Developer-Test\javascript_email_metric_summary`
 
 2. Build node_modules with: `npm install`
 
@@ -37,7 +37,7 @@ Outputs a CSV containing the individual, the associated legislative session name
 
 ### Steps to Run:
 
-1. Navigate to: `/ITSM-System-Developer-Test/powershell_api_workflow`
+1. Navigate to: `ITSM-System-Developer-Test\powershell_api_workflow`
 
 2. Run with: `.\osl_staff_csv_generator.ps1`
 
