@@ -47,6 +47,15 @@ function Get-XmlData($filePath) {
     }
 }
 
+# Helper function to handle namespace and extract the data from XML
+function Get-XmlNodeValue($node, $xpath, $namespaceManager) {
+    $selectedNode = $node.SelectSingleNode($xpath, $namespaceManager)
+    if ($selectedNode) {
+        return $selectedNode.InnerText.Trim()
+    }
+    return $null
+}
+
 # Check if -f flag is provided (use file-based data)
 if ($f) {
     Write-Host "Using XML files for data."
@@ -69,19 +78,19 @@ if ($f) {
     # Extract staff and session data from XML
     $staffMembers = $staffXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
         [PSCustomObject]@{
-            StaffMember           = "$($_.SelectSingleNode("atom:content/m:properties/d:FirstName", $namespaceManager).InnerText) $($_.SelectSingleNode("atom:content/m:properties/d:LastName", $namespaceManager).InnerText)"
-            LegislativeSessionKey = $_.SelectSingleNode("atom:content/m:properties/d:SessionKey", $namespaceManager).InnerText
-            CommitteeCode         = $_.SelectSingleNode("atom:content/m:properties/d:CommitteeCode", $namespaceManager).InnerText
-            Title                 = $_.SelectSingleNode("atom:content/m:properties/d:Title", $namespaceManager).InnerText
+            StaffMember           = "$(Get-XmlNodeValue $_ 'atom:content/m:properties/d:FirstName' $namespaceManager) $(Get-XmlNodeValue $_ 'atom:content/m:properties/d:LastName' $namespaceManager)"
+            LegislativeSessionKey = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
+            CommitteeCode         = Get-XmlNodeValue $_ 'atom:content/m:properties/d:CommitteeCode' $namespaceManager
+            Title                 = Get-XmlNodeValue $_ 'atom:content/m:properties/d:Title' $namespaceManager
         }
     }
 
     $legislativeSessions = $sessionsXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
         [PSCustomObject]@{
-            SessionKey  = $_.SelectSingleNode("atom:content/m:properties/d:SessionKey", $namespaceManager).InnerText
-            SessionName = $_.SelectSingleNode("atom:content/m:properties/d:SessionName", $namespaceManager).InnerText
-            BeginDate   = $_.SelectSingleNode("atom:content/m:properties/d:BeginDate", $namespaceManager).InnerText
-            EndDate     = $_.SelectSingleNode("atom:content/m:properties/d:EndDate", $namespaceManager).InnerText
+            SessionKey  = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
+            SessionName = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionName' $namespaceManager
+            BeginDate   = Get-XmlNodeValue $_ 'atom:content/m:properties/d:BeginDate' $namespaceManager
+            EndDate     = Get-XmlNodeValue $_ 'atom:content/m:properties/d:EndDate' $namespaceManager
         }
     }
 }
@@ -89,16 +98,41 @@ else {
     Write-Host "Using API for data."
 
     # Fetch data from the APIs
-    $staffMembers = Get-ApiData -url $staffApiUrl
-    if (-not $staffMembers) {
+    $staffXml = Get-ApiData -url $staffApiUrl
+    if (-not $staffXml) {
         Write-Host "No staff data fetched, exiting script."
         exit
     }
 
-    $legislativeSessions = Get-ApiData -url $sessionsApiUrl
-    if (-not $legislativeSessions) {
+    $sessionsXml = Get-ApiData -url $sessionsApiUrl
+    if (-not $sessionsXml) {
         Write-Host "No legislative session data fetched, exiting script."
         exit
+    }
+
+    # Define the namespaces for XML parsing
+    $namespaceManager = New-Object System.Xml.XmlNamespaceManager($staffXml.NameTable)
+    $namespaceManager.AddNamespace("atom", "http://www.w3.org/2005/Atom")
+    $namespaceManager.AddNamespace("d", "http://schemas.microsoft.com/ado/2007/08/dataservices")
+    $namespaceManager.AddNamespace("m", "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata")
+
+    # Extract staff and session data from the API response XML
+    $staffMembers = $staffXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
+        [PSCustomObject]@{
+            StaffMember           = "$(Get-XmlNodeValue $_ 'atom:content/m:properties/d:FirstName' $namespaceManager) $(Get-XmlNodeValue $_ 'atom:content/m:properties/d:LastName' $namespaceManager)"
+            LegislativeSessionKey = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
+            CommitteeCode         = Get-XmlNodeValue $_ 'atom:content/m:properties/d:CommitteeCode' $namespaceManager
+            Title                 = Get-XmlNodeValue $_ 'atom:content/m:properties/d:Title' $namespaceManager
+        }
+    }
+
+    $legislativeSessions = $sessionsXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
+        [PSCustomObject]@{
+            SessionKey  = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
+            SessionName = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionName' $namespaceManager
+            BeginDate   = Get-XmlNodeValue $_ 'atom:content/m:properties/d:BeginDate' $namespaceManager
+            EndDate     = Get-XmlNodeValue $_ 'atom:content/m:properties/d:EndDate' $namespaceManager
+        }
     }
 }
 
