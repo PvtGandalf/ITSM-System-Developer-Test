@@ -10,39 +10,39 @@ $sessionsApiUrl = "https://api.oregonlegislature.gov/odata/odataservice.svc/Legi
 $staffXmlPath = ".\import_files\committee_staff_members.xml"
 $sessionsXmlPath = ".\import_files\legislative_sessions.xml"
 
-# Function to get XML data from the API
-function Get-ApiData($url) {
+# Define the namespaces for XML parsing
+$namespaceManager = New-Object System.Xml.XmlNamespaceManager([System.Xml.NameTable]::new())
+$namespaceManager.AddNamespace("atom", "http://www.w3.org/2005/Atom")
+$namespaceManager.AddNamespace("d", "http://schemas.microsoft.com/ado/2007/08/dataservices")
+$namespaceManager.AddNamespace("m", "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata")
+
+# Function to fetch and parse XML data
+function Get-XmlDataFromSource($source, $urlOrPath) {
     try {
-        # Create a WebClient object to fetch the API data
-        $webClient = New-Object System.Net.WebClient
-        $responseXml = $webClient.DownloadString($url)  # Download the XML as a string
+        if ($source -eq 'API') {
+            # Create WebClient object
+            $webClient = New-Object System.Net.WebClient
 
-        # Load the XML content into an XmlDocument object
-        $xmlDoc = New-Object System.Xml.XmlDocument
-        $xmlDoc.LoadXml($responseXml)
-
-        return $xmlDoc
+            # Fetch data from API
+            $responseXml = $webClient.DownloadString($urlOrPath)
+            $xmlDoc = New-Object System.Xml.XmlDocument
+            $xmlDoc.LoadXml($responseXml)
+            return $xmlDoc
+        }
+        elseif ($source -eq 'File') {
+            # Read and parse XML from file
+            if (Test-Path $urlOrPath) {
+                $xmlContent = [xml] (Get-Content -Path $urlOrPath)
+                return $xmlContent
+            }
+            else {
+                Write-Host "XML file not found: $urlOrPath"
+                return $null
+            }
+        }
     }
     catch {
-        Write-Host "Error fetching data from API: $_"
-        return $null
-    }
-}
-
-# Function to parse XML data from a file
-function Get-XmlData($filePath) {
-    if (Test-Path $filePath) {
-        try {
-            $xmlContent = [xml] (Get-Content -Path $filePath)
-            return $xmlContent
-        }
-        catch {
-            Write-Host "Error reading XML file: $_"
-            return $null
-        }
-    }
-    else {
-        Write-Host "XML file not found: $filePath"
+        Write-Host "Error fetching XML data from ${source}: $_"
         return $null
     }
 }
@@ -61,78 +61,47 @@ if ($f) {
     Write-Host "Using XML files for data."
 
     # Load data from XML files
-    $staffXml = Get-XmlData -filePath $staffXmlPath
-    $sessionsXml = Get-XmlData -filePath $sessionsXmlPath
+    $staffXml = Get-XmlDataFromSource -source 'File' -urlOrPath $staffXmlPath
+    $sessionsXml = Get-XmlDataFromSource -source 'File' -urlOrPath $sessionsXmlPath
 
     if (-not $staffXml -or -not $sessionsXml) {
         Write-Host "Error loading XML data, exiting script."
         exit
-    }
-
-    # Define the namespaces for XML parsing
-    $namespaceManager = New-Object System.Xml.XmlNamespaceManager($staffXml.NameTable)
-    $namespaceManager.AddNamespace("atom", "http://www.w3.org/2005/Atom")
-    $namespaceManager.AddNamespace("d", "http://schemas.microsoft.com/ado/2007/08/dataservices")
-    $namespaceManager.AddNamespace("m", "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata")
-
-    # Extract staff and session data from XML
-    $staffMembers = $staffXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
-        [PSCustomObject]@{
-            StaffMember           = "$(Get-XmlNodeValue $_ 'atom:content/m:properties/d:FirstName' $namespaceManager) $(Get-XmlNodeValue $_ 'atom:content/m:properties/d:LastName' $namespaceManager)"
-            LegislativeSessionKey = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
-            CommitteeCode         = Get-XmlNodeValue $_ 'atom:content/m:properties/d:CommitteeCode' $namespaceManager
-            Title                 = Get-XmlNodeValue $_ 'atom:content/m:properties/d:Title' $namespaceManager
-        }
-    }
-
-    $legislativeSessions = $sessionsXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
-        [PSCustomObject]@{
-            SessionKey  = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
-            SessionName = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionName' $namespaceManager
-            BeginDate   = Get-XmlNodeValue $_ 'atom:content/m:properties/d:BeginDate' $namespaceManager
-            EndDate     = Get-XmlNodeValue $_ 'atom:content/m:properties/d:EndDate' $namespaceManager
-        }
     }
 }
 else {
     Write-Host "Using API for data."
 
     # Fetch data from the APIs
-    $staffXml = Get-ApiData -url $staffApiUrl
+    $staffXml = Get-XmlDataFromSource -source 'API' -urlOrPath $staffApiUrl
     if (-not $staffXml) {
         Write-Host "No staff data fetched, exiting script."
         exit
     }
 
-    $sessionsXml = Get-ApiData -url $sessionsApiUrl
+    $sessionsXml = Get-XmlDataFromSource -source 'API' -urlOrPath $sessionsApiUrl
     if (-not $sessionsXml) {
         Write-Host "No legislative session data fetched, exiting script."
         exit
     }
+}
 
-    # Define the namespaces for XML parsing
-    $namespaceManager = New-Object System.Xml.XmlNamespaceManager($staffXml.NameTable)
-    $namespaceManager.AddNamespace("atom", "http://www.w3.org/2005/Atom")
-    $namespaceManager.AddNamespace("d", "http://schemas.microsoft.com/ado/2007/08/dataservices")
-    $namespaceManager.AddNamespace("m", "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata")
-
-    # Extract staff and session data from the API response XML
-    $staffMembers = $staffXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
-        [PSCustomObject]@{
-            StaffMember           = "$(Get-XmlNodeValue $_ 'atom:content/m:properties/d:FirstName' $namespaceManager) $(Get-XmlNodeValue $_ 'atom:content/m:properties/d:LastName' $namespaceManager)"
-            LegislativeSessionKey = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
-            CommitteeCode         = Get-XmlNodeValue $_ 'atom:content/m:properties/d:CommitteeCode' $namespaceManager
-            Title                 = Get-XmlNodeValue $_ 'atom:content/m:properties/d:Title' $namespaceManager
-        }
+# Extract staff and session data from XML
+$staffMembers = $staffXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
+    [PSCustomObject]@{
+        StaffMember           = "$(Get-XmlNodeValue $_ 'atom:content/m:properties/d:FirstName' $namespaceManager) $(Get-XmlNodeValue $_ 'atom:content/m:properties/d:LastName' $namespaceManager)"
+        LegislativeSessionKey = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
+        CommitteeCode         = Get-XmlNodeValue $_ 'atom:content/m:properties/d:CommitteeCode' $namespaceManager
+        Title                 = Get-XmlNodeValue $_ 'atom:content/m:properties/d:Title' $namespaceManager
     }
+}
 
-    $legislativeSessions = $sessionsXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
-        [PSCustomObject]@{
-            SessionKey  = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
-            SessionName = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionName' $namespaceManager
-            BeginDate   = Get-XmlNodeValue $_ 'atom:content/m:properties/d:BeginDate' $namespaceManager
-            EndDate     = Get-XmlNodeValue $_ 'atom:content/m:properties/d:EndDate' $namespaceManager
-        }
+$legislativeSessions = $sessionsXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
+    [PSCustomObject]@{
+        SessionKey  = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionKey' $namespaceManager
+        SessionName = Get-XmlNodeValue $_ 'atom:content/m:properties/d:SessionName' $namespaceManager
+        BeginDate   = Get-XmlNodeValue $_ 'atom:content/m:properties/d:BeginDate' $namespaceManager
+        EndDate     = Get-XmlNodeValue $_ 'atom:content/m:properties/d:EndDate' $namespaceManager
     }
 }
 
