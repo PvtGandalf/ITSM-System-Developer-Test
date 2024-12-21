@@ -9,12 +9,20 @@ $sessionsXmlPath = ".\legislative_sessions.xml"
 # Flag to decide whether to use XML files or APIs
 $useXmlData = $true
 
-# Function to get JSON data from the API
+# Function to get XML data from the API
 function Get-ApiData($url) {
     try {
-        $response = Invoke-RestMethod -Uri $url -Method Get -Headers @{ "Accept" = "application/json" }
-        return $response.value
-    } catch {
+        # Create a WebClient object to fetch the API data
+        $webClient = New-Object System.Net.WebClient
+        $responseXml = $webClient.DownloadString($url)  # Download the XML as a string
+
+        # Load the XML content into an XmlDocument object
+        $xmlDoc = New-Object System.Xml.XmlDocument
+        $xmlDoc.LoadXml($responseXml)
+
+        return $xmlDoc
+    }
+    catch {
         Write-Host "Error fetching data from API: $_"
         return $null
     }
@@ -26,11 +34,13 @@ function Get-XmlData($filePath) {
         try {
             $xmlContent = [xml] (Get-Content -Path $filePath)
             return $xmlContent
-        } catch {
+        }
+        catch {
             Write-Host "Error reading XML file: $_"
             return $null
         }
-    } else {
+    }
+    else {
         Write-Host "XML file not found: $filePath"
         return $null
     }
@@ -58,22 +68,23 @@ if ($useXmlData) {
     # Extract staff and session data from XML
     $staffMembers = $staffXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
         [PSCustomObject]@{
-            StaffMember        = "$($_.SelectSingleNode("atom:content/m:properties/d:FirstName", $namespaceManager).InnerText) $($_.SelectSingleNode("atom:content/m:properties/d:LastName", $namespaceManager).InnerText)"
+            StaffMember           = "$($_.SelectSingleNode("atom:content/m:properties/d:FirstName", $namespaceManager).InnerText) $($_.SelectSingleNode("atom:content/m:properties/d:LastName", $namespaceManager).InnerText)"
             LegislativeSessionKey = $_.SelectSingleNode("atom:content/m:properties/d:SessionKey", $namespaceManager).InnerText
-            CommitteeCode      = $_.SelectSingleNode("atom:content/m:properties/d:CommitteeCode", $namespaceManager).InnerText
-            Title              = $_.SelectSingleNode("atom:content/m:properties/d:Title", $namespaceManager).InnerText
+            CommitteeCode         = $_.SelectSingleNode("atom:content/m:properties/d:CommitteeCode", $namespaceManager).InnerText
+            Title                 = $_.SelectSingleNode("atom:content/m:properties/d:Title", $namespaceManager).InnerText
         }
     }
 
     $legislativeSessions = $sessionsXml.SelectNodes("//atom:entry", $namespaceManager) | ForEach-Object {
         [PSCustomObject]@{
-            SessionKey         = $_.SelectSingleNode("atom:content/m:properties/d:SessionKey", $namespaceManager).InnerText
-            SessionName        = $_.SelectSingleNode("atom:content/m:properties/d:SessionName", $namespaceManager).InnerText
-            BeginDate          = $_.SelectSingleNode("atom:content/m:properties/d:BeginDate", $namespaceManager).InnerText
-            EndDate            = $_.SelectSingleNode("atom:content/m:properties/d:EndDate", $namespaceManager).InnerText
+            SessionKey  = $_.SelectSingleNode("atom:content/m:properties/d:SessionKey", $namespaceManager).InnerText
+            SessionName = $_.SelectSingleNode("atom:content/m:properties/d:SessionName", $namespaceManager).InnerText
+            BeginDate   = $_.SelectSingleNode("atom:content/m:properties/d:BeginDate", $namespaceManager).InnerText
+            EndDate     = $_.SelectSingleNode("atom:content/m:properties/d:EndDate", $namespaceManager).InnerText
         }
     }
-} else {
+}
+else {
     Write-Host "Using API for data."
 
     # Fetch data from the APIs
