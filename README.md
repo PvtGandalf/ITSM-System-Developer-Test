@@ -16,9 +16,11 @@ Returns a JavaScript object for an email message (subject, body, etc) that will 
 
 1. Navigate to: `/ITSM-System-Developer-Test/javascript_email_metric_summary`
 
-2. Run with: `npx tsx .\data_summarizer.ts`
+2. Build node_modules with: `npm install`
 
-3. Copy HTML from console and paste it into an online HTML viewer ([HTML Online Viewer](https://html.onlineviewer.net/))
+3. Run with: `npx tsx .\data_summarizer.ts`
+
+4. Copy HTML from console and paste it into an online HTML viewer ([HTML Online Viewer](https://html.onlineviewer.net/))
 
   
 
@@ -39,4 +41,6 @@ Outputs a CSV containing the individual, the associated legislative session name
 
 2. Run with: `.\osl_staff_csv_generator.ps1`
 
-3. CSV file with be generated as: `osl_staff_session_data.csv`
+3. Alternatively, to run the script using xml files rather than pulling from the API, use the -f flag: `.\osl_staff_csv_generator.ps1 -f`
+
+4. CSV file with be generated as: `osl_staff_session_data.csv`
