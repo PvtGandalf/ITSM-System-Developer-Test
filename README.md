@@ -43,4 +43,4 @@ Outputs a CSV containing the individual, the associated legislative session name
 
 3. Alternatively, to run the script using xml files rather than pulling from the API, use the -f flag: `.\osl_staff_csv_generator.ps1 -f`
 
-4. CSV file with be generated as: `osl_staff_session_data.csv`
+4. CSV file will be generated as: `osl_staff_session_data.csv` within the `export_files` directory
