@@ -7,8 +7,8 @@ $staffApiUrl = "https://api.oregonlegislature.gov/odata/odataservice.svc/Committ
 $sessionsApiUrl = "https://api.oregonlegislature.gov/odata/odataservice.svc/LegislativeSessions"
 
 # Define the paths for the XML files
-$staffXmlPath = ".\committee_staff_members.xml"
-$sessionsXmlPath = ".\legislative_sessions.xml"
+$staffXmlPath = ".\import_files\committee_staff_members.xml"
+$sessionsXmlPath = ".\import_files\legislative_sessions.xml"
 
 # Function to get XML data from the API
 function Get-ApiData($url) {
@@ -123,7 +123,7 @@ foreach ($staff in $staffMembers) {
 $sortedData = $mergedData | Sort-Object -Property SessionBeginDate
 
 # Output the data to a CSV file
-$csvPath = "osl_staff_session_data.csv"
+$csvPath = ".\export_files\osl_staff_session_data.csv"
 $sortedData | Export-Csv -Path $csvPath -NoTypeInformation
 
 Write-Host "CSV file has been saved to: $csvPath"
